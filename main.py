@@ -30,10 +30,38 @@ DP = Dispatcher()
 
 
 # =========================================================
-# PRIVATE GROUP
+# GROUP CONFIGURATION
 # =========================================================
 
-PRIVATE_GROUP_ID = -1002510797113
+# =========================================================
+# PAYMENT / ADMIN GROUP
+# =========================================================
+# Grup ini digunakan untuk:
+#
+# 1. Menerima bukti pembayaran
+# 2. Admin melakukan TERIMA / TOLAK
+# 3. Menampilkan status APPROVED
+# 4. Menampilkan status REJECTED
+#
+# Grup:
+# -1004441837503
+
+PAYMENT_GROUP_ID = -1004441837503
+
+
+# =========================================================
+# MEMBER GROUP
+# =========================================================
+# Grup ini hanya digunakan sebagai tujuan invite member.
+#
+# Setelah pembayaran APPROVED:
+# Bot membuat one-time invite link
+# menuju grup ini.
+#
+# Grup:
+# -1002510797113
+
+MEMBER_GROUP_ID = -1002510797113
 
 
 # =========================================================
@@ -55,9 +83,17 @@ PAYMENT_STATE_FILE = "payment_state.json"
 # =========================================================
 
 if isinstance(ADMIN_ID, (list, tuple, set)):
-    ADMIN_IDS = [int(x) for x in ADMIN_ID]
+
+    ADMIN_IDS = [
+        int(x)
+        for x in ADMIN_ID
+    ]
+
 else:
-    ADMIN_IDS = [int(ADMIN_ID)]
+
+    ADMIN_IDS = [
+        int(ADMIN_ID)
+    ]
 
 
 # =========================================================
@@ -67,9 +103,13 @@ else:
 PACKAGE_MAP = {
 
     "1BLN": {
+
         "label": "1 Bulan",
+
         "price": 99000,
+
         "days": 30
+
     }
 
 }
@@ -81,7 +121,10 @@ PACKAGE_MAP = {
 
 def load_payment_state():
 
-    if not os.path.exists(PAYMENT_STATE_FILE):
+    if not os.path.exists(
+        PAYMENT_STATE_FILE
+    ):
+
         return {}
 
     try:
@@ -94,7 +137,11 @@ def load_payment_state():
 
             data = json.load(f)
 
-        if isinstance(data, dict):
+        if isinstance(
+            data,
+            dict
+        ):
+
             return data
 
         return {}
@@ -112,6 +159,10 @@ def load_payment_state():
 pending_payments = load_payment_state()
 
 
+# =========================================================
+# SAVE PAYMENT STATE
+# =========================================================
+
 def save_payment_state():
 
     try:
@@ -123,10 +174,15 @@ def save_payment_state():
         ) as f:
 
             json.dump(
+
                 pending_payments,
+
                 f,
+
                 ensure_ascii=False,
+
                 indent=2
+
             )
 
         return True
@@ -165,17 +221,29 @@ def format_rupiah(value):
 
 def start_keyboard():
 
+    package = PACKAGE_MAP["1BLN"]
+
     return InlineKeyboardMarkup(
+
         inline_keyboard=[
 
             [
+
                 InlineKeyboardButton(
-                    text="💳 BAYAR SEKARANG — Rp99.000",
+
+                    text=(
+                        "💳 BAYAR SEKARANG — "
+                        f"{format_rupiah(package['price'])}"
+                    ),
+
                     callback_data="pay_1BLN"
+
                 )
+
             ]
 
         ]
+
     )
 
 
@@ -183,26 +251,40 @@ def start_keyboard():
 # ADMIN PAYMENT KEYBOARD
 # =========================================================
 
-def admin_payment_keyboard(user_id):
+def admin_payment_keyboard(
+    user_id
+):
 
     return InlineKeyboardMarkup(
+
         inline_keyboard=[
 
             [
 
                 InlineKeyboardButton(
+
                     text="✅ TERIMA",
-                    callback_data=f"approve_{user_id}"
+
+                    callback_data=(
+                        f"approve_{user_id}"
+                    )
+
                 ),
 
                 InlineKeyboardButton(
+
                     text="❌ TOLAK",
-                    callback_data=f"reject_{user_id}"
+
+                    callback_data=(
+                        f"reject_{user_id}"
+                    )
+
                 )
 
             ]
 
         ]
+
     )
 
 
@@ -210,26 +292,42 @@ def admin_payment_keyboard(user_id):
 # CHECK ADMIN
 # =========================================================
 
-async def is_authorized_admin(user_id):
+async def is_authorized_admin(
+    user_id
+):
 
     try:
 
         user_id = int(user_id)
 
-        # Admin dari config
+        # =================================================
+        # ADMIN DARI CONFIG
+        # =================================================
+
         if user_id in ADMIN_IDS:
+
             return True
 
-        # Cek admin grup
+        # =================================================
+        # CEK ADMIN DI PAYMENT GROUP
+        # =================================================
+
         member = await BOT.get_chat_member(
-            chat_id=PRIVATE_GROUP_ID,
+
+            chat_id=PAYMENT_GROUP_ID,
+
             user_id=user_id
+
         )
 
         if member.status in (
+
             "administrator",
+
             "creator"
+
         ):
+
             return True
 
     except Exception as e:
@@ -250,17 +348,24 @@ async def create_one_time_invite_link():
 
     try:
 
-        invite = await BOT.create_chat_invite_link(
+        invite = (
+            await BOT.create_chat_invite_link(
 
-            chat_id=PRIVATE_GROUP_ID,
+                chat_id=MEMBER_GROUP_ID,
 
-            member_limit=1
+                member_limit=1
 
+            )
         )
 
         print(
             "[INVITE CREATED]",
             invite.invite_link
+        )
+
+        print(
+            "[INVITE TARGET GROUP]",
+            MEMBER_GROUP_ID
         )
 
         return invite.invite_link
@@ -279,14 +384,28 @@ async def create_one_time_invite_link():
 # START
 # =========================================================
 
-@DP.message(CommandStart())
-async def start_handler(message: Message):
+@DP.message(
+    CommandStart()
+)
+async def start_handler(
+    message: Message
+):
 
     user = message.from_user
 
     user_id = user.id
-    username = user.username or ""
-    full_name = user.full_name or ""
+
+    username = (
+        user.username
+        or ""
+    )
+
+    full_name = (
+        user.full_name
+        or ""
+    )
+
+    package = PACKAGE_MAP["1BLN"]
 
     print(
         f"[START] "
@@ -294,8 +413,13 @@ async def start_handler(message: Message):
         f"@{username}"
     )
 
-    # Simpan data awal transaksi
-    pending_payments[str(user_id)] = {
+    # =====================================================
+    # SIMPAN DATA AWAL TRANSAKSI
+    # =====================================================
+
+    pending_payments[
+        str(user_id)
+    ] = {
 
         "telegram_id": user_id,
 
@@ -305,13 +429,15 @@ async def start_handler(message: Message):
 
         "package": "1BLN",
 
-        "harga": 99000,
+        "harga": package["price"],
 
-        "days": 30,
+        "days": package["days"],
 
         "status": "STARTED",
 
-        "created_at": datetime.now().isoformat()
+        "created_at": (
+            datetime.now().isoformat()
+        )
 
     }
 
@@ -347,7 +473,8 @@ async def start_handler(message: Message):
         "cukup lakukan pembayaran sebesar "
         "<b>Rp99.000</b>.\n\n"
 
-        "Klik tombol di bawah untuk melakukan pembayaran 👇"
+        "Klik tombol di bawah untuk melakukan "
+        "pembayaran 👇"
 
     )
 
@@ -366,26 +493,44 @@ async def start_handler(message: Message):
 # PAYMENT BUTTON
 # =========================================================
 
-@DP.callback_query(F.data == "pay_1BLN")
-async def payment_button(callback: CallbackQuery):
+@DP.callback_query(
+    F.data == "pay_1BLN"
+)
+async def payment_button(
+    callback: CallbackQuery
+):
 
     user_id = callback.from_user.id
 
     package = PACKAGE_MAP["1BLN"]
 
-    # Update state
+    # =====================================================
+    # UPDATE STATE
+    # =====================================================
+
     existing = pending_payments.get(
+
         str(user_id),
+
         {}
+
     )
 
-    pending_payments[str(user_id)] = {
+    pending_payments[
+        str(user_id)
+    ] = {
 
         "telegram_id": user_id,
 
-        "username": callback.from_user.username or "",
+        "username": (
+            callback.from_user.username
+            or ""
+        ),
 
-        "nama": callback.from_user.full_name or "",
+        "nama": (
+            callback.from_user.full_name
+            or ""
+        ),
 
         "package": "1BLN",
 
@@ -396,8 +541,11 @@ async def payment_button(callback: CallbackQuery):
         "status": "WAITING_PROOF",
 
         "created_at": existing.get(
+
             "created_at",
+
             datetime.now().isoformat()
+
         )
 
     }
@@ -408,25 +556,33 @@ async def payment_button(callback: CallbackQuery):
     # PAYMENT TEXT
     # =====================================================
 
+    price_text = format_rupiah(
+        package["price"]
+    )
+
     text = (
 
         "💳 <b>PEMBAYARAN PRO SIGNAL FX</b>\n\n"
 
         "📦 Paket: <b>1 Bulan</b>\n"
-        "💰 Harga: <b>Rp99.000</b>\n\n"
+
+        f"💰 Harga: <b>{price_text}</b>\n\n"
 
         "Silakan lakukan pembayaran "
-        "sebesar <b>Rp99.000</b> melalui QRIS "
-        "di bawah ini.\n\n"
+        f"sebesar <b>{price_text}</b> "
+        "melalui QRIS di bawah ini.\n\n"
 
         "📸 <b>Setelah pembayaran berhasil:</b>\n\n"
 
         "1️⃣ Screenshot bukti pembayaran\n"
+
         "2️⃣ Kirim screenshot tersebut "
         "ke bot ini\n"
+
         "3️⃣ Tunggu proses verifikasi admin\n\n"
 
-        "👇 <b>KIRIM SS BUKTI PEMBAYARAN KE SINI YA</b>\n\n"
+        "👇 <b>KIRIM SS BUKTI PEMBAYARAN "
+        "KE SINI YA</b>\n\n"
 
         "Setelah pembayaran diverifikasi, "
         "kamu akan mendapatkan <b>link invite "
@@ -434,13 +590,21 @@ async def payment_button(callback: CallbackQuery):
 
     )
 
-    if os.path.exists(QRIS_PATH):
+    # =====================================================
+    # SEND QRIS
+    # =====================================================
+
+    if os.path.exists(
+        QRIS_PATH
+    ):
 
         await BOT.send_photo(
 
             chat_id=user_id,
 
-            photo=FSInputFile(QRIS_PATH),
+            photo=FSInputFile(
+                QRIS_PATH
+            ),
 
             caption=text,
 
@@ -466,7 +630,9 @@ async def payment_button(callback: CallbackQuery):
         )
 
     await callback.answer(
-        "Silakan lakukan pembayaran Rp99.000."
+
+        f"Silakan lakukan pembayaran {price_text}."
+
     )
 
 
@@ -474,17 +640,29 @@ async def payment_button(callback: CallbackQuery):
 # RECEIVE PAYMENT PROOF
 # =========================================================
 
-@DP.message(F.photo)
-async def payment_proof_handler(message: Message):
+@DP.message(
+    F.photo
+)
+async def payment_proof_handler(
+    message: Message
+):
 
     user_id = message.from_user.id
 
-    username = message.from_user.username or ""
+    username = (
+        message.from_user.username
+        or ""
+    )
 
-    full_name = message.from_user.full_name or ""
+    full_name = (
+        message.from_user.full_name
+        or ""
+    )
 
     payment = pending_payments.get(
+
         str(user_id)
+
     )
 
     # =====================================================
@@ -520,6 +698,7 @@ async def payment_proof_handler(message: Message):
         await message.answer(
 
             "✅ Pembayaran kamu sudah disetujui.\n\n"
+
             "Silakan gunakan link invite "
             "yang sebelumnya sudah diberikan."
 
@@ -532,6 +711,7 @@ async def payment_proof_handler(message: Message):
         await message.answer(
 
             "⏳ Bukti pembayaran kamu sudah diterima.\n\n"
+
             "Saat ini masih menunggu verifikasi admin."
 
         )
@@ -539,8 +719,11 @@ async def payment_proof_handler(message: Message):
         return
 
     if status not in (
+
         "WAITING_PROOF",
+
         "STARTED"
+
     ):
 
         await message.answer(
@@ -570,7 +753,9 @@ async def payment_proof_handler(message: Message):
 
     payment["proof_file_id"] = proof_file_id
 
-    payment["proof_time"] = datetime.now().isoformat()
+    payment["proof_time"] = (
+        datetime.now().isoformat()
+    )
 
     payment["status"] = "WAITING_ADMIN"
 
@@ -583,23 +768,36 @@ async def payment_proof_handler(message: Message):
     )
 
     # =====================================================
-    # SEND PROOF TO GROUP
+    # ADMIN CAPTION
     # =====================================================
+
+    package = PACKAGE_MAP["1BLN"]
+
+    price_text = format_rupiah(
+        package["price"]
+    )
 
     admin_caption = (
 
         "💳 <b>PEMBAYARAN BARU</b>\n\n"
 
         "👤 <b>DATA USER</b>\n"
+
         f"Nama: <b>{full_name}</b>\n"
-        f"Username: @{username if username else '-'}\n"
+
+        f"Username: "
+        f"@{username if username else '-'}\n"
+
         f"Telegram ID: <code>{user_id}</code>\n\n"
 
         "📦 <b>PAKET</b>\n"
-        "1 Bulan\n"
-        "💰 Harga: <b>Rp99.000</b>\n\n"
 
-        "📋 Status: <b>MENUNGGU VERIFIKASI</b>\n\n"
+        f"{package['label']}\n"
+
+        f"💰 Harga: <b>{price_text}</b>\n\n"
+
+        "📋 Status: "
+        "<b>MENUNGGU VERIFIKASI</b>\n\n"
 
         "Silakan periksa bukti pembayaran "
         "kemudian pilih tombol di bawah."
@@ -610,11 +808,15 @@ async def payment_proof_handler(message: Message):
         user_id
     )
 
+    # =====================================================
+    # SEND PROOF TO PAYMENT GROUP
+    # =====================================================
+
     try:
 
         await BOT.send_photo(
 
-            chat_id=PRIVATE_GROUP_ID,
+            chat_id=PAYMENT_GROUP_ID,
 
             photo=proof_file_id,
 
@@ -627,8 +829,8 @@ async def payment_proof_handler(message: Message):
         )
 
         print(
-            "[PAYMENT SENT TO GROUP]",
-            PRIVATE_GROUP_ID
+            "[PAYMENT SENT TO PAYMENT GROUP]",
+            PAYMENT_GROUP_ID
         )
 
     except Exception as e:
@@ -681,7 +883,9 @@ async def payment_proof_handler(message: Message):
 # APPROVE PAYMENT
 # =========================================================
 
-@DP.callback_query(F.data.startswith("approve_"))
+@DP.callback_query(
+    F.data.startswith("approve_")
+)
 async def approve_payment(
     callback: CallbackQuery
 ):
@@ -715,11 +919,17 @@ async def approve_payment(
     try:
 
         user_id = int(
+
             callback.data.replace(
+
                 "approve_",
+
                 "",
+
                 1
+
             )
+
         )
 
     except Exception:
@@ -734,8 +944,14 @@ async def approve_payment(
 
         return
 
+    # =====================================================
+    # GET PAYMENT
+    # =====================================================
+
     payment = pending_payments.get(
+
         str(user_id)
+
     )
 
     if not payment:
@@ -754,7 +970,9 @@ async def approve_payment(
     # CHECK STATUS
     # =====================================================
 
-    if payment.get("status") == "APPROVED":
+    if payment.get(
+        "status"
+    ) == "APPROVED":
 
         await callback.answer(
 
@@ -766,7 +984,9 @@ async def approve_payment(
 
         return
 
-    if payment.get("status") != "WAITING_ADMIN":
+    if payment.get(
+        "status"
+    ) != "WAITING_ADMIN":
 
         await callback.answer(
 
@@ -781,15 +1001,21 @@ async def approve_payment(
     # =====================================================
     # CREATE INVITE
     # =====================================================
+    # Invite dibuat ke MEMBER_GROUP_ID
+    # yaitu -1002510797113
+    #
+    # BUKAN ke PAYMENT_GROUP_ID.
 
-    invite_link = await create_one_time_invite_link()
+    invite_link = (
+        await create_one_time_invite_link()
+    )
 
     if not invite_link:
 
         await callback.answer(
 
             "❌ Gagal membuat invite link.",
-
+            
             show_alert=True
 
         )
@@ -810,18 +1036,29 @@ async def approve_payment(
 
     payment["invite_link"] = invite_link
 
+    payment["member_group_id"] = (
+        MEMBER_GROUP_ID
+    )
+
     save_payment_state()
 
     # =====================================================
     # SEND INVITE TO USER
     # =====================================================
 
+    price_text = format_rupiah(
+        payment.get(
+            "harga",
+            99000
+        )
+    )
+
     user_text = (
 
         "🎉 <b>PEMBAYARAN BERHASIL!</b>\n\n"
 
         "Selamat, pembayaran kamu sebesar "
-        "<b>Rp99.000</b> telah disetujui.\n\n"
+        f"<b>{price_text}</b> telah disetujui.\n\n"
 
         "🤖 Selamat datang di "
         "<b>PRO SIGNAL FX</b>\n\n"
@@ -834,6 +1071,7 @@ async def approve_payment(
         f"👉 {invite_link}\n\n"
 
         "⚠️ <b>PENTING</b>\n"
+
         "Link ini hanya dapat digunakan "
         "untuk <b>1 member</b>.\n\n"
 
@@ -869,8 +1107,13 @@ async def approve_payment(
         )
 
     # =====================================================
-    # UPDATE GROUP MESSAGE
+    # UPDATE PAYMENT GROUP MESSAGE
     # =====================================================
+    # Pesan APPROVED hanya mengubah pesan
+    # di PAYMENT_GROUP_ID (-1004441837503).
+    #
+    # Tidak ada pesan APPROVED yang dikirim
+    # ke MEMBER_GROUP_ID.
 
     try:
 
@@ -880,18 +1123,22 @@ async def approve_payment(
 
                 "✅ <b>PAYMENT APPROVED</b>\n\n"
 
-                f"👤 User: <code>{user_id}</code>\n"
+                f"👤 User: "
+                f"<code>{user_id}</code>\n"
 
-                f"📦 Paket: <b>1 Bulan</b>\n"
+                "📦 Paket: <b>1 Bulan</b>\n"
 
-                "💰 Harga: <b>Rp99.000</b>\n\n"
+                f"💰 Harga: <b>{price_text}</b>\n\n"
 
                 "📋 Status: <b>APPROVED</b>\n"
 
                 "🔐 Invite: <b>CREATED</b>\n\n"
 
                 "Link invite sekali pakai "
-                "telah dikirim ke user."
+                "telah dikirim ke user.\n\n"
+
+                "🎯 Grup tujuan invite: "
+                f"<code>{MEMBER_GROUP_ID}</code>"
 
             ),
 
@@ -904,12 +1151,14 @@ async def approve_payment(
     except Exception as e:
 
         print(
-            "[EDIT GROUP MESSAGE ERROR]",
+            "[EDIT PAYMENT GROUP MESSAGE ERROR]",
             e
         )
 
     await callback.answer(
+
         "✅ Pembayaran diterima."
+
     )
 
 
@@ -917,7 +1166,9 @@ async def approve_payment(
 # REJECT PAYMENT
 # =========================================================
 
-@DP.callback_query(F.data.startswith("reject_"))
+@DP.callback_query(
+    F.data.startswith("reject_")
+)
 async def reject_payment(
     callback: CallbackQuery
 ):
@@ -951,11 +1202,17 @@ async def reject_payment(
     try:
 
         user_id = int(
+
             callback.data.replace(
+
                 "reject_",
+
                 "",
+
                 1
+
             )
+
         )
 
     except Exception:
@@ -970,8 +1227,14 @@ async def reject_payment(
 
         return
 
+    # =====================================================
+    # GET PAYMENT
+    # =====================================================
+
     payment = pending_payments.get(
+
         str(user_id)
+
     )
 
     if not payment:
@@ -979,6 +1242,38 @@ async def reject_payment(
         await callback.answer(
 
             "❌ Data pembayaran tidak ditemukan.",
+
+            show_alert=True
+
+        )
+
+        return
+
+    # =====================================================
+    # CHECK STATUS
+    # =====================================================
+
+    if payment.get(
+        "status"
+    ) == "REJECTED":
+
+        await callback.answer(
+
+            "Pembayaran sudah ditolak.",
+
+            show_alert=True
+
+        )
+
+        return
+
+    if payment.get(
+        "status"
+    ) != "WAITING_ADMIN":
+
+        await callback.answer(
+
+            "Pembayaran belum menunggu verifikasi.",
 
             show_alert=True
 
@@ -1042,8 +1337,13 @@ async def reject_payment(
         )
 
     # =====================================================
-    # UPDATE GROUP MESSAGE
+    # UPDATE PAYMENT GROUP MESSAGE
     # =====================================================
+    # Status REJECTED hanya ditampilkan
+    # pada PAYMENT_GROUP_ID (-1004441837503).
+    #
+    # Tidak ada pesan REJECTED yang dikirim
+    # ke MEMBER_GROUP_ID.
 
     try:
 
@@ -1053,7 +1353,8 @@ async def reject_payment(
 
                 "❌ <b>PAYMENT REJECTED</b>\n\n"
 
-                f"👤 User: <code>{user_id}</code>\n"
+                f"👤 User: "
+                f"<code>{user_id}</code>\n"
 
                 "📦 Paket: <b>1 Bulan</b>\n"
 
@@ -1062,7 +1363,8 @@ async def reject_payment(
                 "📋 Status: <b>REJECTED</b>\n\n"
 
                 "User telah diberitahu untuk "
-                "menghubungi @ProSignals_FX11."
+                "menghubungi "
+                "<b>@ProSignals_FX11</b>."
 
             ),
 
@@ -1075,12 +1377,14 @@ async def reject_payment(
     except Exception as e:
 
         print(
-            "[EDIT REJECT MESSAGE ERROR]",
+            "[EDIT PAYMENT GROUP MESSAGE ERROR]",
             e
         )
 
     await callback.answer(
+
         "❌ Pembayaran ditolak."
+
     )
 
 
@@ -1089,7 +1393,9 @@ async def reject_payment(
 # =========================================================
 
 @DP.errors()
-async def global_error_handler(event):
+async def global_error_handler(
+    event
+):
 
     print(
         "[BOT ERROR]",
@@ -1116,8 +1422,13 @@ async def main():
     )
 
     print(
-        "PRIVATE GROUP:",
-        PRIVATE_GROUP_ID
+        "PAYMENT / ADMIN GROUP:",
+        PAYMENT_GROUP_ID
+    )
+
+    print(
+        "MEMBER GROUP:",
+        MEMBER_GROUP_ID
     )
 
     print(
@@ -1131,19 +1442,76 @@ async def main():
     )
 
     print("")
-    print("PACKAGE:")
-    print(" - 1 BULAN : Rp99.000")
+
+    print(
+        "PACKAGE:"
+    )
+
+    print(
+        " - 1 BULAN : Rp99.000"
+    )
 
     print("")
-    print("FLOW:")
-    print(" - /start")
-    print(" - Welcome PRO SIGNAL FX")
-    print(" - Bayar Rp99.000")
-    print(" - Kirim bukti pembayaran")
-    print(" - Bukti masuk ke private group")
-    print(" - Admin TERIMA / TOLAK")
-    print(" - APPROVE = One Time Invite")
-    print(" - REJECT = Hubungi @ProSignals_FX11")
+
+    print(
+        "GROUP FLOW:"
+    )
+
+    print(
+        " - PAYMENT GROUP :",
+        PAYMENT_GROUP_ID
+    )
+
+    print(
+        " - MEMBER GROUP  :",
+        MEMBER_GROUP_ID
+    )
+
+    print("")
+
+    print(
+        "FLOW:"
+    )
+
+    print(
+        " - /start"
+    )
+
+    print(
+        " - Welcome PRO SIGNAL FX"
+    )
+
+    print(
+        " - Bayar Rp99.000"
+    )
+
+    print(
+        " - Kirim bukti pembayaran"
+    )
+
+    print(
+        f" - Bukti masuk ke {PAYMENT_GROUP_ID}"
+    )
+
+    print(
+        " - Admin TERIMA / TOLAK"
+    )
+
+    print(
+        f" - APPROVE = One Time Invite -> {MEMBER_GROUP_ID}"
+    )
+
+    print(
+        f" - APPROVED message tetap di -> {PAYMENT_GROUP_ID}"
+    )
+
+    print(
+        f" - REJECTED message tetap di -> {PAYMENT_GROUP_ID}"
+    )
+
+    print(
+        " - REJECT = Hubungi @ProSignals_FX11"
+    )
 
     print(
         "=========================================="
